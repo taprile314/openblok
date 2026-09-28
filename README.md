@@ -7,6 +7,31 @@ OpenBlok
 
 A customizable, cross platform, open-source falling block game, packed with a bunch of features.
 
+> **About this fork:** this is [mmatyas/openblok](https://github.com/mmatyas/openblok) with a
+> Jstris-inspired **cheese mode** and five extra themes. Everything else is the upstream game.
+>
+> **New game modes**
+>
+> | Menu | Mode | Rules |
+> |---|---|---|
+> | Singleplayer | **Cheese Race** | Dig through 18 lines of messy garbage as fast as you can. At most 10 cheese lines are on the field; new ones are pushed in from the bottom as you clear them. The GOAL counter shows the remaining lines. |
+> | Multiplayer | **Cheese Race** | Every player gets the exact same cheese (shared random seed). The first one to dig through wins. |
+> | Multiplayer | **Cheese Battle** | A regular team battle, but everyone starts with 8 cheese lines, and all garbage sent between players is messy. |
+>
+> Cheese garbage has one hole per row, never in the same column as the row above it.
+> The tunables live at the top of `src/game/states/substates/ingame/Gameplay.cpp`.
+>
+> **Extra themes** (in `data/themes`, installed with the game): `synthwave`, `nes`, `crt_verde`,
+> `dracula` and `aurora`, each with its own blocks, wallpaper, colors and sound effects.
+> They are generated procedurally by `tools/theme-generator/gen.py`.
+>
+> **Prebuilt binary:** the [releases page](https://github.com/taprile314/openblok/releases) has an
+> aarch64 Linux build (tested on a Raspberry Pi 5 running Batocera 43 as a PortMaster port). It links
+> against the system SDL2 libraries and needs glibc 2.34 or newer.
+>
+> Note: the upstream unit tests currently don't compile (`tests/test_WellTSpin.cpp` uses an old
+> `InputEvent` constructor), independently of the changes in this fork. Build with `-DBUILD_TESTS=OFF`.
+
 ![Screenshot](etc/promo/screenshot01.png)
 
 **Features:**
