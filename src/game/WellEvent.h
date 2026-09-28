@@ -31,6 +31,7 @@ struct WellEvent {
     struct lineclear_t {
         uint8_t count;
         LineClearType type;
+        uint8_t garbage_count; ///< how many of the cleared rows contained garbage
     };
 
     Type type;

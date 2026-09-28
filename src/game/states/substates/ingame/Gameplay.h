@@ -9,6 +9,7 @@
 #include <array>
 #include <list>
 #include <memory>
+#include <random>
 #include <stack>
 #include <unordered_map>
 
@@ -66,6 +67,15 @@ private:
     std::unordered_map<DeviceID, bool> current_piece_cleared_line;
 
     std::unordered_map<DeviceID, unsigned short> pending_garbage_lines;
+
+    // cheese modes: every player gets the same, seeded garbage
+    std::unordered_map<DeviceID, std::mt19937> cheese_rng;
+    std::unordered_map<DeviceID, unsigned short> cheese_on_board;   ///< cheese rows currently in the well
+    std::unordered_map<DeviceID, unsigned short> cheese_to_spawn;   ///< cheese rows not added yet
+    std::unordered_map<DeviceID, unsigned short> pending_cheese_lines;
+    void setupCheese(IngameState&);
+    void updateCheeseRace(IngameState&, DeviceID, const WellEvent::lineclear_t&);
+    void finishPlayer(IngameState&, DeviceID);
     std::unordered_map<DeviceID, std::list<TextPopup>> textpopups;
     std::list<BattleAttackAnim> attackanims;
 

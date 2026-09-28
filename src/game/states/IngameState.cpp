@@ -19,14 +19,25 @@ bool isSinglePlayer(GameMode gamemode)
         GameMode::SP_40LINES,
         GameMode::SP_2MIN,
         GameMode::SP_MARATHON_SIMPLE,
+        GameMode::SP_CHEESE,
     };
     return sp_modes.count(gamemode);
+}
+
+bool isCheeseRace(GameMode gamemode)
+{
+    return gamemode == GameMode::SP_CHEESE || gamemode == GameMode::MP_CHEESE_RACE;
+}
+
+bool isBattle(GameMode gamemode)
+{
+    return gamemode == GameMode::MP_BATTLE || gamemode == GameMode::MP_CHEESE_BATTLE;
 }
 
 namespace {
 bool is_team_based(GameMode gamemode)
 {
-    return gamemode == GameMode::MP_BATTLE;
+    return isBattle(gamemode);
 }
 } // namespace
 

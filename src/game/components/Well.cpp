@@ -25,7 +25,9 @@ Well::Well(const WellConfig& config)
     , active_piece_y(0)
     , ghost_piece_y(0)
     , softdrop_timer(Duration::zero())
+    , pending_cleared_garbage_rows(0)
     , last_lineclear_type(LineClearType::NORMAL)
+    , last_cheese_hole(-1)
     , das(Timing::frame_duration_60Hz * config.shift_normal,
           Timing::frame_duration_60Hz * config.shift_turbo)
     , lock_delay(*this, Timing::frame_duration_60Hz * config.lock_delay,
@@ -133,6 +135,31 @@ void Well::addGarbageLines(unsigned short line_count)
         for (size_t col = 0; col < mx_row.size(); col++)
             mx_row.at(col) = MinoStorage::getMino(PieceType::GARBAGE);
         mx_row.at(gap_location).reset();
+    }
+
+    if (active_piece)
+        calculateGhostOffset();
+}
+
+void Well::addCheeseLines(unsigned short line_count, std::mt19937& rng)
+{
+    if (!line_count)
+        return;
+
+    std::rotate(matrix.begin(), matrix.begin() + line_count, matrix.end());
+
+    // new rows are pushed in at the bottom: fill them top-down, so every hole
+    // differs from the row above it (the first one from the previous bottom row)
+    for (size_t row = matrix.size() - line_count; row < matrix.size(); row++) {
+        int hole = std::uniform_int_distribution<int>(0, 9)(rng);
+        if (last_cheese_hole >= 0 && hole == last_cheese_hole)
+            hole = (hole + 1 + std::uniform_int_distribution<int>(0, 8)(rng)) % 10;
+
+        auto& mx_row = matrix.at(row);
+        for (size_t col = 0; col < mx_row.size(); col++)
+            mx_row.at(col) = MinoStorage::getMino(PieceType::GARBAGE);
+        mx_row.at(hole).reset();
+        last_cheese_hole = hole;
     }
 
     if (active_piece)
@@ -350,6 +377,7 @@ void Well::lockThenRequestNext()
         WellEvent clear_anim_event(WellEvent::Type::LINE_CLEAR_ANIMATION_START);
         clear_anim_event.lineclear.count = pending_cleared_rows.size();
         clear_anim_event.lineclear.type = last_lineclear_type;
+        clear_anim_event.lineclear.garbage_count = pending_cleared_garbage_rows;
         notify(clear_anim_event);
     }
 }
@@ -416,8 +444,13 @@ void Well::checkLineclear()
     }
 
     assert(pending_cleared_rows.size() <= 4); // you can clear only 4 rows at once
+    pending_cleared_garbage_rows = 0;
     if (pending_cleared_rows.size()) {
+        const auto garbage_mino = MinoStorage::getMino(PieceType::GARBAGE);
         for (auto row : pending_cleared_rows) {
+            if (std::find(matrix[row].begin(), matrix[row].end(), garbage_mino) != matrix[row].end())
+                pending_cleared_garbage_rows++;
+
             for (auto& cell : matrix[row])
                 cell = nullptr;
 
@@ -442,6 +475,7 @@ void Well::removeEmptyRows()
     WellEvent clear_event(WellEvent::Type::LINE_CLEAR);
     clear_event.lineclear.count = pending_cleared_rows.size();
     clear_event.lineclear.type = last_lineclear_type;
+    clear_event.lineclear.garbage_count = pending_cleared_garbage_rows;
     notify(clear_event);
 
     for (int row = matrix.size(); row >= 0; row--) {

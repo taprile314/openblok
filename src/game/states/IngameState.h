@@ -21,9 +21,14 @@ enum class GameMode : uint8_t {
     MP_MARATHON,
     MP_BATTLE,
     MP_MARATHON_SIMPLE,
+    SP_CHEESE,
+    MP_CHEESE_RACE,
+    MP_CHEESE_BATTLE,
 };
 
 bool isSinglePlayer(GameMode);
+bool isCheeseRace(GameMode);
+bool isBattle(GameMode);
 
 class IngameState: public GameState {
 public:

@@ -22,6 +22,13 @@
 #include <random>
 
 
+namespace {
+constexpr unsigned short CHEESE_RACE_LINES = 18;
+constexpr unsigned short CHEESE_VISIBLE_LINES = 10;
+constexpr unsigned short CHEESE_BATTLE_START_LINES = 8;
+} // namespace
+
+
 namespace SubStates {
 namespace Ingame {
 namespace States {
@@ -62,7 +69,7 @@ Gameplay::Gameplay(AppContext& app, IngameState& parent, unsigned short starting
     parent.player_stats.clear();
 
 
-    const bool is_battle = (parent.gamemode == GameMode::MP_BATTLE);
+    const bool is_battle = isBattle(parent.gamemode);
 
     for (const DeviceID device_id : player_devices) {
         previous_lineclear_type[device_id] = ScoreType::CLEAR_SINGLE;
@@ -71,6 +78,7 @@ Gameplay::Gameplay(AppContext& app, IngameState& parent, unsigned short starting
         current_piece_cleared_line[device_id] = false;
         prev_piece_cleared_line[device_id] = false;
         pending_garbage_lines[device_id] = 0;
+        pending_cheese_lines[device_id] = 0;
 
         player_status[device_id] = PlayerStatus::PLAYING;
         parent.player_areas.emplace(std::piecewise_construct,
@@ -121,6 +129,8 @@ Gameplay::Gameplay(AppContext& app, IngameState& parent, unsigned short starting
         for (auto& parea : parent.player_areas)
             parea.second.enableGameOverSFX(false);
     }
+
+    setupCheese(parent);
 
     parent.updatePositions(app);
 
@@ -197,7 +207,7 @@ void Gameplay::increaseScoreMaybe(IngameState& parent, DeviceID source_player,
 void Gameplay::sendGarbageMaybe(IngameState& parent, DeviceID source_player,
                                 const WellEvent::lineclear_t& lcevent)
 {
-    if (parent.gamemode != GameMode::MP_BATTLE)
+    if (!isBattle(parent.gamemode))
         return;
 
     const auto score_type = ScoreTable::lineclearType(lcevent);
@@ -310,6 +320,66 @@ void Gameplay::increaseLevelMaybe(IngameState& parent, DeviceID source_player,
     }
 }
 
+void Gameplay::setupCheese(IngameState& parent)
+{
+    const bool race = isCheeseRace(parent.gamemode);
+    if (!race && parent.gamemode != GameMode::MP_CHEESE_BATTLE)
+        return;
+
+    // same seed for everyone, so every player has to dig through the same cheese
+    const auto seed = std::random_device()();
+    for (const DeviceID device_id : player_devices) {
+        cheese_rng.emplace(device_id, std::mt19937(seed));
+
+        const unsigned short total = race ? CHEESE_RACE_LINES : CHEESE_BATTLE_START_LINES;
+        const unsigned short initial = race ? std::min(total, CHEESE_VISIBLE_LINES) : total;
+        parent.player_areas.at(device_id).well().addCheeseLines(initial, cheese_rng.at(device_id));
+        cheese_on_board[device_id] = initial;
+        cheese_to_spawn[device_id] = total - initial;
+
+        if (race)
+            lineclears_left.at(device_id) = total;
+    }
+}
+
+void Gameplay::updateCheeseRace(IngameState& parent, DeviceID source_player,
+                                const WellEvent::lineclear_t& lcevent)
+{
+    auto& on_board = cheese_on_board.at(source_player);
+    auto& to_spawn = cheese_to_spawn.at(source_player);
+
+    on_board -= std::min<unsigned short>(on_board, lcevent.garbage_count);
+
+    // keep the well topped up until the whole race is dug through
+    const unsigned short refill = std::min<unsigned short>(to_spawn, CHEESE_VISIBLE_LINES - on_board);
+    to_spawn -= refill;
+    on_board += refill;
+    pending_cheese_lines.at(source_player) += refill;
+
+    lineclears_left.at(source_player) = on_board + to_spawn;
+    if (on_board + to_spawn == 0)
+        finishPlayer(parent, source_player);
+}
+
+void Gameplay::finishPlayer(IngameState& parent, DeviceID device_id)
+{
+    player_status.at(device_id) = PlayerStatus::FINISHED;
+    parent.player_areas.at(device_id).startGameFinish();
+    gameend_statistics_delay.restart();
+
+    // in a race, the first one to finish wins
+    if (parent.gamemode == GameMode::MP_CHEESE_RACE) {
+        for (const DeviceID other : playingPlayers()) {
+            player_status.at(other) = PlayerStatus::GAME_OVER;
+            parent.player_areas.at(other).enableGameOverSFX(false);
+            parent.player_areas.at(other).startGameOver();
+        }
+    }
+
+    if (playingPlayers().empty())
+        music->fadeOut(std::chrono::seconds(1));
+}
+
 void Gameplay::registerObservers(IngameState& parent, AppContext& app)
 {
     for (const DeviceID device_id : player_devices) {
@@ -370,7 +440,10 @@ void Gameplay::registerObservers(IngameState& parent, AppContext& app)
 
             increaseScoreMaybe(parent, device_id, event.lineclear);
             sendGarbageMaybe(parent, device_id, event.lineclear);
-            increaseLevelMaybe(parent, device_id, event.lineclear);
+            if (isCheeseRace(parent.gamemode))
+                updateCheeseRace(parent, device_id, event.lineclear);
+            else
+                increaseLevelMaybe(parent, device_id, event.lineclear);
 
             previous_lineclear_type.at(device_id) = ScoreTable::lineclearType(event.lineclear);
             current_piece_cleared_line.at(device_id) = true;
@@ -419,7 +492,7 @@ void Gameplay::registerObservers(IngameState& parent, AppContext& app)
             // IF MARATHON
                 // wait until all players finish the game
             // IF BATTLE
-            if (parent.gamemode == GameMode::MP_BATTLE) {
+            if (isBattle(parent.gamemode)) {
                 std::unordered_map<size_t, size_t> team_player_count;
                 for (DeviceID player : playing_players)
                     team_player_count[player_team.at(player)]++;
@@ -526,8 +599,16 @@ void Gameplay::update(IngameState& parent, const std::vector<Event>& events, App
             auto& well = parea.well();
 
             well.updateGameplayOnly(input_events[device_id]);
-            well.addGarbageLines(pending_garbage_lines.at(device_id));
+            if (parent.gamemode == GameMode::MP_CHEESE_BATTLE)
+                well.addCheeseLines(pending_garbage_lines.at(device_id), cheese_rng.at(device_id));
+            else
+                well.addGarbageLines(pending_garbage_lines.at(device_id));
             pending_garbage_lines.at(device_id) = 0;
+
+            if (pending_cheese_lines.at(device_id)) {
+                well.addCheeseLines(pending_cheese_lines.at(device_id), cheese_rng.at(device_id));
+                pending_cheese_lines.at(device_id) = 0;
+            }
 
             auto& stats = parent.player_stats.at(device_id);
             stats.gametime += Timing::frame_duration;

@@ -11,6 +11,7 @@
 
 #include <list>
 #include <memory>
+#include <random>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -60,6 +61,9 @@ public:
 
     /// Add garbage lines to the bottom of the well.
     void addGarbageLines(unsigned short);
+    /// Add "cheese" garbage lines: every row gets its own hole,
+    /// always in a different column than the row below it.
+    void addCheeseLines(unsigned short, std::mt19937&);
 
     /// Set the gravity update rate
     void setGravity(Duration);
@@ -122,7 +126,9 @@ private:
     void checkLineclear();
     void removeEmptyRows();
     std::set<uint8_t> pending_cleared_rows;
+    uint8_t pending_cleared_garbage_rows;
     LineClearType last_lineclear_type;
+    int last_cheese_hole;
 
     // listeners
     std::unordered_map<uint8_t, std::vector<std::function<void(const WellEvent&)>>> observers;

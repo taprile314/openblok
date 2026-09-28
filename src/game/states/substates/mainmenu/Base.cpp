@@ -92,6 +92,8 @@ void Base::reloadUI(MainMenuState& parent, AppContext& app)
             [this, &app](){ startGame(app, GameMode::SP_2MIN); });
         singleplayer_buttons.buttons.emplace_back(app, tr("MARATHON SIMPLE"),
             [this, &app](){ startGame(app, GameMode::SP_MARATHON_SIMPLE); });
+        singleplayer_buttons.buttons.emplace_back(app, tr("CHEESE RACE"),
+            [this, &app](){ startGame(app, GameMode::SP_CHEESE); });
 
         singleplayer_buttons.descriptions.emplace_back(desc_font->renderText(
             tr("Clear 15 levels with increasing\n"
@@ -107,6 +109,9 @@ void Base::reloadUI(MainMenuState& parent, AppContext& app)
             tr("Like Marathon, but using advanced\n"
                "moves won't reward you with\n"
                "bonus lines."), desc_color, TextAlign::RIGHT));
+        singleplayer_buttons.descriptions.emplace_back(desc_font->renderText(
+            tr("Dig through 18 lines of messy\n"
+               "garbage as fast as you can!"), desc_color, TextAlign::RIGHT));
 
         assert(singleplayer_buttons.buttons.size() == singleplayer_buttons.descriptions.size());
     }
@@ -123,6 +128,10 @@ void Base::reloadUI(MainMenuState& parent, AppContext& app)
             [this, &app](){ startGame(app, GameMode::MP_MARATHON); });
         multiplayer_buttons.buttons.emplace_back(app, tr("MARATHON SIMPLE"),
             [this, &app](){ startGame(app, GameMode::MP_MARATHON_SIMPLE); });
+        multiplayer_buttons.buttons.emplace_back(app, tr("CHEESE RACE"),
+            [this, &app](){ startGame(app, GameMode::MP_CHEESE_RACE); });
+        multiplayer_buttons.buttons.emplace_back(app, tr("CHEESE BATTLE"),
+            [this, &app](){ startGame(app, GameMode::MP_CHEESE_BATTLE); });
 
         multiplayer_buttons.descriptions.emplace_back(desc_font->renderText(
             tr("Battle with you friends: clear\n"
@@ -137,6 +146,14 @@ void Base::reloadUI(MainMenuState& parent, AppContext& app)
             tr("Like Marathon, but using advanced\n"
             "moves won't reward you with\n"
             "bonus lines."), desc_color, TextAlign::RIGHT));
+        multiplayer_buttons.descriptions.emplace_back(desc_font->renderText(
+            tr("Everyone gets the same 18 lines\n"
+            "of messy garbage - the first one\n"
+            "to dig through wins!"), desc_color, TextAlign::RIGHT));
+        multiplayer_buttons.descriptions.emplace_back(desc_font->renderText(
+            tr("Battle starting on a cheesy\n"
+            "field, where every garbage line\n"
+            "has its hole in a new place!"), desc_color, TextAlign::RIGHT));
 
         assert(multiplayer_buttons.buttons.size() == multiplayer_buttons.descriptions.size());
     }
